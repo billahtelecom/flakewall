@@ -169,5 +169,122 @@ def retry_tests(
             working_dir=working_dir,
             dry_run=dry_run,
         )
+    elif framework == "vitest":
+        # Similar to jest: vitest -t <name> [file]
+        def _vitest_args_from_test_id(tid: str) -> List[str]:
+            file_arg = None
+            name = tid
+            if "::" in tid:
+                head, name = tid.split("::", 1)
+                if "/" in head:
+                    file_arg = head
+            args = []
+            if file_arg:
+                args.append(file_arg)
+            args.extend(["-t", name])
+            return args
+
+        outcomes: List[RetryOutcome] = []
+        for tid in test_ids:
+            cmd_list = shlex.split(base_cmd or "vitest run") + _vitest_args_from_test_id(tid)
+            attempts = 0
+            passed_once = False
+            first_pass = None
+            for _ in range(0, max_retries + 1):
+                attempts += 1
+                if dry_run:
+                    print("DRY RUN: would run:", " ".join(shlex.quote(p) for p in cmd_list))
+                    continue
+                try:
+                    res = subprocess.run(
+                        cmd_list, cwd=working_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+                    )
+                    success = res.returncode == 0
+                except FileNotFoundError:
+                    raise SystemExit("vitest not found; provide --cmd (e.g., 'npx vitest run')")
+                if first_pass is None:
+                    first_pass = success
+                if success:
+                    passed_once = True
+                    break
+            outcomes.append(
+                RetryOutcome(
+                    test_id=tid,
+                    attempts=attempts,
+                    first_attempt_passed=bool(first_pass),
+                    eventually_passed=passed_once,
+                )
+            )
+        return outcomes
+    elif framework == "go":
+        # Run 'go test -run <name>' where name is a regex fragment
+        outcomes: List[RetryOutcome] = []
+        for tid in test_ids:
+            name = tid.split("::", 1)[-1]
+            cmd = base_cmd or f"go test -run {shlex.quote(name)} ./..."
+            attempts = 0
+            passed_once = False
+            first_pass = None
+            for _ in range(0, max_retries + 1):
+                attempts += 1
+                if dry_run:
+                    print(f"DRY RUN: would run: {cmd}")
+                    continue
+                res = subprocess.run(shlex.split(cmd), cwd=working_dir)
+                success = res.returncode == 0
+                if first_pass is None:
+                    first_pass = success
+                if success:
+                    passed_once = True
+                    break
+            outcomes.append(RetryOutcome(tid, attempts, bool(first_pass), passed_once))
+        return outcomes
+    elif framework == ".net" or framework == "dotnet":
+        # dotnet test --filter FullyQualifiedName~<name>
+        outcomes: List[RetryOutcome] = []
+        for tid in test_ids:
+            name = tid.split("::", 1)[-1]
+            cmd = base_cmd or f"dotnet test --filter FullyQualifiedName~{shlex.quote(name)}"
+            attempts = 0
+            passed_once = False
+            first_pass = None
+            for _ in range(0, max_retries + 1):
+                attempts += 1
+                if dry_run:
+                    print(f"DRY RUN: would run: {cmd}")
+                    continue
+                res = subprocess.run(shlex.split(cmd), cwd=working_dir)
+                success = res.returncode == 0
+                if first_pass is None:
+                    first_pass = success
+                if success:
+                    passed_once = True
+                    break
+            outcomes.append(RetryOutcome(tid, attempts, bool(first_pass), passed_once))
+        return outcomes
+    elif framework == "shell":
+        # Generic shell command template: base_cmd should contain {test}
+        if not base_cmd or "{test}" not in base_cmd:
+            raise SystemExit("for framework=shell, provide --cmd with a {test} placeholder")
+        outcomes: List[RetryOutcome] = []
+        for tid in test_ids:
+            cmd = base_cmd.replace("{test}", tid)
+            attempts = 0
+            passed_once = False
+            first_pass = None
+            for _ in range(0, max_retries + 1):
+                attempts += 1
+                if dry_run:
+                    print(f"DRY RUN: would run: {cmd}")
+                    continue
+                res = subprocess.run(cmd, cwd=working_dir, shell=True)
+                success = res.returncode == 0
+                if first_pass is None:
+                    first_pass = success
+                if success:
+                    passed_once = True
+                    break
+            outcomes.append(RetryOutcome(tid, attempts, bool(first_pass), passed_once))
+        return outcomes
     else:
         raise SystemExit(f"Unsupported framework: {framework}")

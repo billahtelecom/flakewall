@@ -9,7 +9,13 @@ import json
 import typer
 
 from .config import FlakewallConfig, ensure_default_files, CONFIG_PATH
-from .junit import parse_junit_files, failing_ids, compute_flake_stats
+from .junit import (
+    parse_junit_files,
+    parse_junit_files_grouped,
+    failing_ids,
+    compute_flake_stats,
+    compute_flake_metrics,
+)
 from .quarantine import load_quarantined, add_to_quarantine
 from .runner import retry_tests
 from . import __version__
@@ -116,51 +122,105 @@ def score(
     gh_summary: bool = typer.Option(
         False, help="Write summary of flaky candidates to GITHUB_STEP_SUMMARY"
     ),
+    rich: bool = typer.Option(
+        False, help="Compute richer metrics (flips, instability, streaks) across runs"
+    ),
 ) -> None:
     """Compute minimal flake stats from a set of JUnit XML files and print tests that flipped."""
     cfg = FlakewallConfig.load()
     pattern = junit or cfg.report_glob
     files = [Path(p) for p in glob.glob(pattern, recursive=True)]
     results = parse_junit_files(files)
-    stats = compute_flake_stats(results)
-
-    flippers = [s for s in stats.values() if s.total_runs >= min_total and s.has_flip]
-    flippers.sort(key=lambda s: (-(s.fail_ratio), s.test_id))
+    if rich:
+        grouped = parse_junit_files_grouped(files)
+        metrics = compute_flake_metrics(grouped)
+        flippers = [
+            m
+            for m in metrics.values()
+            if m.total_runs >= min_total and (m.fail_error_count > 0 and m.pass_count > 0)
+        ]
+        flippers.sort(key=lambda m: (-m.instability_index, -m.flips, m.test_id))
+    else:
+        stats = compute_flake_stats(results)
+        flippers = [s for s in stats.values() if s.total_runs >= min_total and s.has_flip]
+        flippers.sort(key=lambda s: (-(s.fail_ratio), s.test_id))
 
     if json_out:
-        payload = {
-            "files_count": len(files),
-            "cases_count": len(results),
-            "flaky_candidates_count": len(flippers),
-            "flaky_candidates": [
-                {
-                    "test_id": s.test_id,
-                    "total_runs": s.total_runs,
-                    "pass_count": s.pass_count,
-                    "fail_error_count": s.fail_error_count,
-                    "skipped_count": s.skipped_count,
-                    "has_flip": s.has_flip,
-                    "fail_ratio": s.fail_ratio,
-                }
-                for s in flippers
-            ],
-        }
+        if rich:
+            payload = {
+                "files_count": len(files),
+                "flaky_candidates_count": len(flippers),
+                "flaky_candidates": [
+                    {
+                        "test_id": m.test_id,
+                        "total_runs": m.total_runs,
+                        "pass_count": m.pass_count,
+                        "fail_error_count": m.fail_error_count,
+                        "skipped_count": m.skipped_count,
+                        "flips": m.flips,
+                        "instability_index": m.instability_index,
+                        "longest_pass_streak": m.longest_pass_streak,
+                        "longest_failerr_streak": m.longest_failerr_streak,
+                    }
+                    for m in flippers
+                ],
+            }
+        else:
+            payload = {
+                "files_count": len(files),
+                "cases_count": len(results),
+                "flaky_candidates_count": len(flippers),
+                "flaky_candidates": [
+                    {
+                        "test_id": s.test_id,
+                        "total_runs": s.total_runs,
+                        "pass_count": s.pass_count,
+                        "fail_error_count": s.fail_error_count,
+                        "skipped_count": s.skipped_count,
+                        "has_flip": s.has_flip,
+                        "fail_ratio": s.fail_ratio,
+                    }
+                    for s in flippers
+                ],
+            }
         typer.echo(json.dumps(payload, indent=2))
         return
     else:
-        header = f"Files: {len(files)} | Cases: {len(results)} | Flaky candidates: {len(flippers)}"
-        typer.echo(header)
-        for s in flippers:
-            line = (
-                f" - {s.test_id}: runs={s.total_runs} pass={s.pass_count} "
-                f"fail+error={s.fail_error_count} skipped={s.skipped_count} "
-                f"fail_ratio={s.fail_ratio:.2f}"
+        if rich:
+            header = f"Files: {len(files)} | Flaky candidates: {len(flippers)}"
+        else:
+            header = (
+                f"Files: {len(files)} | Cases: {len(results)} | Flaky candidates: {len(flippers)}"
             )
-            typer.echo(line)
+        typer.echo(header)
+        if rich:
+            for m in flippers:
+                line = (
+                    f" - {m.test_id}: runs={m.total_runs} flips={m.flips} "
+                    f"instability={m.instability_index:.2f} pass_streak={m.longest_pass_streak} "
+                    f"fail_streak={m.longest_failerr_streak}"
+                )
+                typer.echo(line)
+        else:
+            for s in flippers:
+                line = (
+                    f" - {s.test_id}: runs={s.total_runs} pass={s.pass_count} "
+                    f"fail+error={s.fail_error_count} skipped={s.skipped_count} "
+                    f"fail_ratio={s.fail_ratio:.2f}"
+                )
+                typer.echo(line)
         if gh_summary:
             lines = ["### flakewall score", header]
-            for s in flippers:
-                lines.append(f"- {s.test_id} (runs={s.total_runs}, fail_ratio={s.fail_ratio:.2f})")
+            if rich:
+                for m in flippers:
+                    lines.append(
+                        f"- {m.test_id} (runs={m.total_runs}, flips={m.flips}, instability={m.instability_index:.2f})"
+                    )
+            else:
+                for s in flippers:
+                    lines.append(
+                        f"- {s.test_id} (runs={s.total_runs}, fail_ratio={s.fail_ratio:.2f})"
+                    )
             write_step_summary(lines)
 
 

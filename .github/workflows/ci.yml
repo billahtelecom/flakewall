@@ -1,0 +1,25 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e .[dev]
+      - name: Lint import
+        run: python -c "import flakewall; print(flakewall.__version__)"
+      - name: CLI smoke
+        run: |
+          flakewall --help
+          printf '%s\n' '<testsuite name="demo">' '  <testcase classname="pkg.T" name="t1"><failure/></testcase>' '  <testcase classname="pkg.T" name="t2" />' '</testsuite>' > junit.xml
+          flakewall init
+          flakewall report --junit "**/junit*.xml"
+          flakewall guard --junit "**/junit*.xml" || true
+          flakewall score --junit "**/junit*.xml" --min-total 1 --json
+

@@ -1,5 +1,9 @@
 # flakewall
 
+[![CI](https://github.com/Cicatriiz/flakewall/actions/workflows/ci.yml/badge.svg)](https://github.com/Cicatriiz/flakewall/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
+
 Language-agnostic flaky test guard for CI. Parse JUnit XML, score flakiness, quarantine known flakes, and selectively retry tests (pytest/jest) – all via a tiny CLI.
 
 ## What it does (simple explanation)
@@ -14,6 +18,29 @@ Flaky tests are tests that sometimes pass and sometimes fail without code change
 - Plays nicely with your existing CI and test runner
 
 ## Install
+Pick one of the following (no PyPI required):
+
+From source (recommended for dev):
+```bash
+git clone https://github.com/Cicatriiz/flakewall.git
+cd flakewall
+make dev   # creates venv and installs in editable mode
+# or
+python -m venv .venv && . .venv/bin/activate && pip install -e .[dev]
+```
+
+pipx (isolated, global CLI without polluting system site-packages):
+```bash
+pipx install git+https://github.com/Cicatriiz/flakewall.git
+```
+
+Docker (no local Python required):
+```bash
+docker run --rm -v "$PWD":/work -w /work python:3.11-slim bash -lc \
+  "pip install git+https://github.com/Cicatriiz/flakewall.git && flakewall --help"
+```
+
+From PyPI (optional):
 ```bash
 pip install flakewall
 ```

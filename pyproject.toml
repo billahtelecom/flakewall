@@ -28,9 +28,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-org/flakewall"
-Repository = "https://github.com/your-org/flakewall"
-Issues = "https://github.com/your-org/flakewall/issues"
+Homepage = "https://github.com/Cicatriiz/flakewall"
+Repository = "https://github.com/Cicatriiz/flakewall"
+Issues = "https://github.com/Cicatriiz/flakewall/issues"
 
 [project.scripts]
 flakewall = "flakewall.cli:app"

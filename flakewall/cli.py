@@ -12,8 +12,18 @@ from .config import FlakewallConfig, ensure_default_files, CONFIG_PATH
 from .junit import parse_junit_files, failing_ids, compute_flake_stats
 from .quarantine import load_quarantined, add_to_quarantine
 from .runner import retry_tests
+from . import __version__
 
 app = typer.Typer(add_completion=False, help="Guard CI from flaky tests via JUnit XML and quarantine")
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(False, "--version", help="Show version and exit"),
+):
+    if version:
+        typer.echo(__version__)
+        raise typer.Exit()
 
 
 @app.command()

@@ -68,10 +68,10 @@ flakewall retry --framework pytest --from-junit "reports/**/*.xml" --max-retries
 ## Commands
 - `init` – creates `.flakewall/config.yml` and `.flakewall/quarantine.yml`
 - `report` – lists current failing test IDs and marks quarantined ones
-- `guard` – exits 0 if failures ⊆ quarantine; else exits 1
+- `guard` – exits 0 if failures ⊆ quarantine; else exits 1. Flags: `--gh-annotations`, `--slack-webhook URL`
 - `score` – detects pass/fail flips across JUnit files; supports `--json` and `--rich` (adds flips, instability index, and streaks)
-- `auto-quarantine` – adds flip-prone tests above a `--threshold` to quarantine
-- `retry` – re-runs tests up to `--max-retries`; can `--auto-quarantine` proofs of flakiness; supports `--json`
+- `auto-quarantine` – adds flip-prone tests above a `--threshold` to quarantine; optional `--ttl-runs N` to auto-unquarantine after N runs
+- `retry` – re-runs tests up to `--max-retries`; can `--auto-quarantine` proofs of flakiness; supports `--json`; optional `--junit-out path` to write a merged JUnit
 
 ## Configuration
 Files created by `init` under `.flakewall/`:
@@ -105,6 +105,7 @@ Files created by `init` under `.flakewall/`:
 
 ## Notes and limitations
 - Quarantine is a local YAML list – keep it under review in code review.
+- TTL support: run `flakewall quarantine-tick` in CI to decrement TTL and auto-remove expired entries.
 - Flake scoring is minimal (requires only JUnit XML). It doesn’t depend on long CI history.
 - Jest retry selection uses `-t <name>`; include file path in test ID if multiple names collide.
 

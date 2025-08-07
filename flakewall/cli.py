@@ -5,6 +5,8 @@ from typing import Optional
 import glob
 import sys
 import json
+import urllib.request
+import urllib.error
 
 import typer
 
@@ -16,10 +18,11 @@ from .junit import (
     compute_flake_stats,
     compute_flake_metrics,
 )
-from .quarantine import load_quarantined, add_to_quarantine
+from .quarantine import load_quarantined, add_to_quarantine, decrement_quarantine_ttl
 from .runner import retry_tests
 from . import __version__
 from .gh import write_step_summary, annotate
+from .junit_writer import write_junit_report
 
 app = typer.Typer(
     add_completion=False,
@@ -81,6 +84,9 @@ def guard(
     gh_annotations: bool = typer.Option(
         False, help="Emit workflow command annotations for non-quarantined failures"
     ),
+    slack_webhook: Optional[str] = typer.Option(
+        None, help="Slack webhook URL to notify on non-quarantined failures"
+    ),
 ) -> None:
     cfg = FlakewallConfig.load()
     pattern = junit or cfg.report_glob
@@ -101,6 +107,21 @@ def guard(
             typer.echo(f" - {test_id}")
             if gh_annotations:
                 annotate("error", f"Non-quarantined failing test: {test_id}")
+        if slack_webhook:
+            try:
+                payload = {
+                    "text": "flakewall: Non-quarantined failures detected\n"
+                    + "\n".join(f"- {t}" for t in non_quarantined)
+                }
+                req = urllib.request.Request(
+                    slack_webhook,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                urllib.request.urlopen(req, timeout=5).read()
+            except Exception:
+                pass
         raise typer.Exit(code=1)
 
     typer.echo("Only quarantined tests failed; passing guard.")
@@ -230,6 +251,9 @@ def auto_quarantine(
     threshold: float = typer.Option(0.10, help="Minimum fail ratio to consider flaky (0.0-1.0)"),
     min_total: int = typer.Option(2, help="Minimum total runs to consider"),
     dry_run: bool = typer.Option(False, help="Print changes without writing"),
+    ttl_runs: Optional[int] = typer.Option(
+        None, help="If set, add tests with a quarantine TTL (auto-unquarantine after N runs)"
+    ),
 ) -> None:
     """Add tests to quarantine if they show flip behavior and meet threshold criteria."""
     cfg = FlakewallConfig.load()
@@ -254,7 +278,7 @@ def auto_quarantine(
             typer.echo(f" - {tid}")
         raise typer.Exit(code=0)
 
-    add_to_quarantine(ids)
+    add_to_quarantine(ids, ttl_runs=ttl_runs)
     typer.echo(f"Added {len(ids)} tests to quarantine.")
 
 
@@ -278,6 +302,9 @@ def retry(
     dry_run: bool = typer.Option(False, help="Print commands without executing"),
     json_out: bool = typer.Option(False, "--json", help="Emit JSON output"),
     gh_summary: bool = typer.Option(False, help="Write summary to GITHUB_STEP_SUMMARY"),
+    junit_out: Optional[str] = typer.Option(
+        None, help="Path to write a merged JUnit report of retry outcomes"
+    ),
 ) -> None:
     """Retry selected tests and quarantine those that prove flaky (fail then pass)."""
     selected: list[str] = []
@@ -332,6 +359,24 @@ def retry(
     if auto_quarantine and flaky_ids and not dry_run:
         add_to_quarantine(flaky_ids)
         typer.echo(f"Quarantined {len(flaky_ids)} flaky tests.")
+
+    if junit_out:
+        statuses = []
+        for o in outcomes:
+            status = "pass" if o.eventually_passed else "fail"
+            statuses.append((o.test_id, status, o.is_flaky))
+        write_junit_report(Path(junit_out), "flakewall-retry", statuses)
+        typer.echo(f"Wrote JUnit report to {junit_out}")
+
+
+@app.command()
+def quarantine_tick() -> None:
+    """Decrement TTL counters for quarantined tests and remove expired entries."""
+    removed = decrement_quarantine_ttl()
+    if removed:
+        typer.echo(f"Removed {removed} expired quarantine entries.")
+    else:
+        typer.echo("No quarantine entries expired.")
 
 
 if __name__ == "__main__":  # pragma: no cover

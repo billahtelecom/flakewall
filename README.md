@@ -100,5 +100,8 @@ Files created by `init` under `.flakewall/`:
 - Flake scoring is minimal (requires only JUnit XML). It doesn’t depend on long CI history.
 - Jest retry selection uses `-t <name>`; include file path in test ID if multiple names collide.
 
+## Contributing
+See `CONTRIBUTING.md` for dev setup and releasing.
+
 ## License
 MIT – see `LICENSE`.

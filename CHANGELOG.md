@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.0
+- score: add `--rich` with flips/instability/streaks
+- retry: add vitest/go/dotnet/shell adapters; `--junit-out` writer
+- guard: `--slack-webhook` notifications; GH annotations/summary options
+- quarantine: TTL support and `quarantine-tick` command
+
 ## v0.1.2
 - CLI: make --version work without subcommand; improve no-args help
 

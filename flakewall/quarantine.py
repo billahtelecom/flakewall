@@ -25,5 +25,3 @@ def add_to_quarantine(test_ids: list[str], path: Path | None = None) -> None:
     quarantined.update(test_ids)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.write_text(yaml.safe_dump({"quarantined": sorted(quarantined)}, sort_keys=True))
-
-

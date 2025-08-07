@@ -48,5 +48,3 @@ def ensure_default_files() -> None:
         FlakewallConfig().save(CONFIG_PATH)
     if not QUARANTINE_PATH.exists():
         QUARANTINE_PATH.write_text(yaml.safe_dump({"quarantined": []}, sort_keys=True))
-
-

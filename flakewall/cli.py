@@ -59,7 +59,9 @@ def report(
 @app.command()
 def guard(
     junit: Optional[str] = typer.Option(None, help='Glob of JUnit XML, e.g. "**/junit*.xml"'),
-    auto_quarantine: bool = typer.Option(False, help="Add newly detected failing tests to quarantine"),
+    auto_quarantine: bool = typer.Option(
+        False, help="Add newly detected failing tests to quarantine"
+    ),
 ) -> None:
     cfg = FlakewallConfig.load()
     pattern = junit or cfg.report_glob
@@ -91,7 +93,9 @@ def guard(
 
 @app.command()
 def score(
-    junit: Optional[str] = typer.Option(None, help='Glob of JUnit XML across multiple runs, e.g. "reports/**/junit*.xml"'),
+    junit: Optional[str] = typer.Option(
+        None, help='Glob of JUnit XML across multiple runs, e.g. "reports/**/junit*.xml"'
+    ),
     min_total: int = typer.Option(2, help="Only show tests with at least this many total runs"),
     json_out: bool = typer.Option(False, "--json", help="Emit JSON output"),
 ) -> None:
@@ -126,14 +130,18 @@ def score(
         typer.echo(json.dumps(payload, indent=2))
         return
     else:
-        typer.echo(f"Files: {len(files)} | Cases: {len(results)} | Flaky candidates: {len(flippers)}")
+        typer.echo(
+            f"Files: {len(files)} | Cases: {len(results)} | Flaky candidates: {len(flippers)}"
+        )
         for s in flippers:
-            typer.echo(f" - {s.test_id}: runs={s.total_runs} pass={s.pass_count} fail+error={s.fail_error_count} skipped={s.skipped_count} fail_ratio={s.fail_ratio:.2f}")
+            typer.echo(
+                f" - {s.test_id}: runs={s.total_runs} pass={s.pass_count} fail+error={s.fail_error_count} skipped={s.skipped_count} fail_ratio={s.fail_ratio:.2f}"
+            )
 
 
 @app.command()
 def auto_quarantine(
-    junit: Optional[str] = typer.Option(None, help='Glob of JUnit XML across multiple runs'),
+    junit: Optional[str] = typer.Option(None, help="Glob of JUnit XML across multiple runs"),
     threshold: float = typer.Option(0.10, help="Minimum fail ratio to consider flaky (0.0-1.0)"),
     min_total: int = typer.Option(2, help="Minimum total runs to consider"),
     dry_run: bool = typer.Option(False, help="Print changes without writing"),
@@ -145,7 +153,11 @@ def auto_quarantine(
     results = parse_junit_files(files)
     stats = compute_flake_stats(results)
 
-    candidates = [s for s in stats.values() if s.total_runs >= min_total and s.has_flip and s.fail_ratio >= threshold]
+    candidates = [
+        s
+        for s in stats.values()
+        if s.total_runs >= min_total and s.has_flip and s.fail_ratio >= threshold
+    ]
     if not candidates:
         typer.echo("No candidates met the threshold.")
         raise typer.Exit(code=0)
@@ -164,12 +176,20 @@ def auto_quarantine(
 @app.command()
 def retry(
     framework: str = typer.Option("pytest", help="Test framework to use (pytest)"),
-    tests: Optional[str] = typer.Option(None, help="Comma-separated test ids to retry (classname::name)"),
-    from_junit: Optional[str] = typer.Option(None, help='Glob of JUnit XML to pick failing tests from'),
+    tests: Optional[str] = typer.Option(
+        None, help="Comma-separated test ids to retry (classname::name)"
+    ),
+    from_junit: Optional[str] = typer.Option(
+        None, help="Glob of JUnit XML to pick failing tests from"
+    ),
     max_retries: int = typer.Option(1, help="Max retries per test"),
-    cmd: Optional[str] = typer.Option(None, help="Base command to run tests (default depends on framework)"),
+    cmd: Optional[str] = typer.Option(
+        None, help="Base command to run tests (default depends on framework)"
+    ),
     working_dir: Optional[str] = typer.Option(None, help="Working directory for the test command"),
-    auto_quarantine: bool = typer.Option(False, help="Quarantine tests that flip from fail to pass"),
+    auto_quarantine: bool = typer.Option(
+        False, help="Quarantine tests that flip from fail to pass"
+    ),
     dry_run: bool = typer.Option(False, help="Print commands without executing"),
     json_out: bool = typer.Option(False, "--json", help="Emit JSON output"),
 ) -> None:
@@ -221,7 +241,6 @@ def retry(
         add_to_quarantine(flaky_ids)
         typer.echo(f"Quarantined {len(flaky_ids)} flaky tests.")
 
+
 if __name__ == "__main__":  # pragma: no cover
     app()
-
-

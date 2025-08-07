@@ -44,7 +44,7 @@ def _jest_args_from_test_id(test_id: str) -> List[str]:
     name_part: str = test_id
     if "::" in test_id:
         class_part, name_part = test_id.split("::", 1)
-        if "/" in class_part or class_part.endswith(('.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs')):
+        if "/" in class_part or class_part.endswith((".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs")):
             file_arg = class_part
     args: List[str] = []
     if file_arg:
@@ -75,7 +75,12 @@ def retry_tests_pytest(
                 # Simulate failure on first attempt only in dry-run; do not mark as flaky deterministically
                 continue
             try:
-                result = subprocess.run(shlex.split(cmd), cwd=working_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                result = subprocess.run(
+                    shlex.split(cmd),
+                    cwd=working_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                )
                 success = result.returncode == 0
             except FileNotFoundError:
                 raise SystemExit("pytest not found on PATH; install it or provide a custom --cmd")
@@ -115,10 +120,14 @@ def retry_tests_jest(
                 print("DRY RUN: would run:", " ".join(shlex.quote(p) for p in cmd_list))
                 continue
             try:
-                result = subprocess.run(cmd_list, cwd=working_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                result = subprocess.run(
+                    cmd_list, cwd=working_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+                )
                 success = result.returncode == 0
             except FileNotFoundError:
-                raise SystemExit("jest not found on PATH; install it or provide a custom --cmd (e.g., 'npx jest -i')")
+                raise SystemExit(
+                    "jest not found on PATH; install it or provide a custom --cmd (e.g., 'npx jest -i')"
+                )
             if first_pass is None:
                 first_pass = success
             if success:
@@ -162,5 +171,3 @@ def retry_tests(
         )
     else:
         raise SystemExit(f"Unsupported framework: {framework}")
-
-

@@ -90,5 +90,3 @@ def compute_flake_stats(results: Iterable[CaseResult]) -> Dict[str, FlakeStats]:
             skipped_count=c["skipped"],
         )
     return stats
-
-

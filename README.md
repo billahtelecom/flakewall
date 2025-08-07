@@ -69,9 +69,9 @@ flakewall retry --framework pytest --from-junit "reports/**/*.xml" --max-retries
 - `init` – creates `.flakewall/config.yml` and `.flakewall/quarantine.yml`
 - `report` – lists current failing test IDs and marks quarantined ones
 - `guard` – exits 0 if failures ⊆ quarantine; else exits 1
-- `score` – detects pass/fail flips across JUnit files; supports `--json`
+- `score` – detects pass/fail flips across JUnit files; supports `--json` and `--rich` (adds flips, instability index, and streaks)
 - `auto-quarantine` – adds flip-prone tests above a `--threshold` to quarantine
-- `retry` – re-runs tests (pytest/jest) up to `--max-retries`; can `--auto-quarantine` proofs of flakiness; supports `--json`
+- `retry` – re-runs tests up to `--max-retries`; can `--auto-quarantine` proofs of flakiness; supports `--json`
 
 ## Configuration
 Files created by `init` under `.flakewall/`:
@@ -95,7 +95,13 @@ Files created by `init` under `.flakewall/`:
 
 ## Supported inputs and runners
 - Input: JUnit XML (generic, from any language)
-- Retry adapters: pytest, jest (dry‑run friendly, configurable base command)
+- Retry adapters:
+  - pytest (default; `-k <Class and name>`)
+  - jest (`-t <name>`; include file path via `path/to/test.spec.ts::test name` if needed)
+  - vitest (`vitest run -t <name> [file]`)
+  - go (`go test -run <name> ./...`)
+  - dotnet (`dotnet test --filter FullyQualifiedName~<name>`)
+  - shell (generic template; provide `--cmd '...{test}...'`)
 
 ## Notes and limitations
 - Quarantine is a local YAML list – keep it under review in code review.

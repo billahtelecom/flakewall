@@ -13,6 +13,7 @@ from .junit import parse_junit_files, failing_ids, compute_flake_stats
 from .quarantine import load_quarantined, add_to_quarantine
 from .runner import retry_tests
 from . import __version__
+from .gh import write_step_summary, annotate
 
 app = typer.Typer(
     add_completion=False,
@@ -40,6 +41,7 @@ def init() -> None:
 @app.command()
 def report(
     junit: Optional[str] = typer.Option(None, help='Glob of JUnit XML, e.g. "**/junit*.xml"'),
+    gh_summary: bool = typer.Option(False, help="Write a brief summary to GITHUB_STEP_SUMMARY"),
 ) -> None:
     cfg = FlakewallConfig.load()
     pattern = junit or cfg.report_glob
@@ -48,12 +50,20 @@ def report(
     failed = failing_ids(results)
     quarantined = load_quarantined()
 
-    typer.echo(f"Files: {len(files)} | Cases: {len(results)} | Failures: {len(failed)}")
+    header = f"Files: {len(files)} | Cases: {len(results)} | Failures: {len(failed)}"
+    typer.echo(header)
     if failed:
         typer.echo("Failing test IDs:")
         for test_id in failed:
             mark = " [quarantined]" if test_id in quarantined else ""
             typer.echo(f" - {test_id}{mark}")
+
+    if gh_summary:
+        lines = ["### flakewall report", header]
+        for test_id in failed:
+            mark = " (quarantined)" if test_id in quarantined else ""
+            lines.append(f"- {test_id}{mark}")
+        write_step_summary(lines)
 
 
 @app.command()
@@ -61,6 +71,9 @@ def guard(
     junit: Optional[str] = typer.Option(None, help='Glob of JUnit XML, e.g. "**/junit*.xml"'),
     auto_quarantine: bool = typer.Option(
         False, help="Add newly detected failing tests to quarantine"
+    ),
+    gh_annotations: bool = typer.Option(
+        False, help="Emit workflow command annotations for non-quarantined failures"
     ),
 ) -> None:
     cfg = FlakewallConfig.load()
@@ -80,6 +93,8 @@ def guard(
         typer.echo("Non-quarantined failures detected:")
         for test_id in non_quarantined:
             typer.echo(f" - {test_id}")
+            if gh_annotations:
+                annotate("error", f"Non-quarantined failing test: {test_id}")
         raise typer.Exit(code=1)
 
     typer.echo("Only quarantined tests failed; passing guard.")
@@ -98,6 +113,9 @@ def score(
     ),
     min_total: int = typer.Option(2, help="Only show tests with at least this many total runs"),
     json_out: bool = typer.Option(False, "--json", help="Emit JSON output"),
+    gh_summary: bool = typer.Option(
+        False, help="Write summary of flaky candidates to GITHUB_STEP_SUMMARY"
+    ),
 ) -> None:
     """Compute minimal flake stats from a set of JUnit XML files and print tests that flipped."""
     cfg = FlakewallConfig.load()
@@ -130,13 +148,20 @@ def score(
         typer.echo(json.dumps(payload, indent=2))
         return
     else:
-        typer.echo(
-            f"Files: {len(files)} | Cases: {len(results)} | Flaky candidates: {len(flippers)}"
-        )
+        header = f"Files: {len(files)} | Cases: {len(results)} | Flaky candidates: {len(flippers)}"
+        typer.echo(header)
         for s in flippers:
-            typer.echo(
-                f" - {s.test_id}: runs={s.total_runs} pass={s.pass_count} fail+error={s.fail_error_count} skipped={s.skipped_count} fail_ratio={s.fail_ratio:.2f}"
+            line = (
+                f" - {s.test_id}: runs={s.total_runs} pass={s.pass_count} "
+                f"fail+error={s.fail_error_count} skipped={s.skipped_count} "
+                f"fail_ratio={s.fail_ratio:.2f}"
             )
+            typer.echo(line)
+        if gh_summary:
+            lines = ["### flakewall score", header]
+            for s in flippers:
+                lines.append(f"- {s.test_id} (runs={s.total_runs}, fail_ratio={s.fail_ratio:.2f})")
+            write_step_summary(lines)
 
 
 @app.command()
@@ -192,6 +217,7 @@ def retry(
     ),
     dry_run: bool = typer.Option(False, help="Print commands without executing"),
     json_out: bool = typer.Option(False, "--json", help="Emit JSON output"),
+    gh_summary: bool = typer.Option(False, help="Write summary to GITHUB_STEP_SUMMARY"),
 ) -> None:
     """Retry selected tests and quarantine those that prove flaky (fail then pass)."""
     selected: list[str] = []
@@ -232,10 +258,16 @@ def retry(
         }
         typer.echo(json.dumps(payload, indent=2))
     else:
+        lines: list[str] = []
         for o in outcomes:
-            typer.echo(
-                f" - {o.test_id}: attempts={o.attempts} first_pass={o.first_attempt_passed} eventually_passed={o.eventually_passed} flaky={o.is_flaky}"
+            line = (
+                f" - {o.test_id}: attempts={o.attempts} first_pass={o.first_attempt_passed} "
+                f"eventually_passed={o.eventually_passed} flaky={o.is_flaky}"
             )
+            typer.echo(line)
+            lines.append(line)
+        if gh_summary:
+            write_step_summary(["### flakewall retry", *lines])
 
     if auto_quarantine and flaky_ids and not dry_run:
         add_to_quarantine(flaky_ids)

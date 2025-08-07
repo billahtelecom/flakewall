@@ -1,0 +1,4 @@
+<testsuite name="demo2">
+  <testcase classname="pkg.module.TestX" name="test_a"><failure/></testcase>
+  <testcase classname="pkg.module.TestX" name="test_b" />
+</testsuite>

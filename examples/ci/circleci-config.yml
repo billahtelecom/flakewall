@@ -1,0 +1,22 @@
+version: 2.1
+jobs:
+  test:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - run: python -m pip install --upgrade pip
+      - run: pip install flakewall pytest
+      - run: mkdir -p reports
+      - run: pytest --junitxml=reports/junit.xml
+      - run: flakewall init
+      - run: flakewall guard --junit "reports/**/*.xml"
+      - run: flakewall score --junit "reports/**/*.xml" --min-total 2 --json > reports/flakewall_score.json
+      - store_artifacts:
+          path: reports
+workflows:
+  test:
+    jobs:
+      - test
+
+

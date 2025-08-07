@@ -1,0 +1,25 @@
+image: python:3.11
+
+stages:
+  - test
+
+variables:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+pytest:
+  stage: test
+  script:
+    - python -m pip install --upgrade pip
+    - pip install flakewall pytest
+    - mkdir -p reports
+    - pytest --junitxml=reports/junit.xml
+    - flakewall init
+    - flakewall guard --junit "reports/**/*.xml"
+    - flakewall score --junit "reports/**/*.xml" --min-total 2 --json > reports/flakewall_score.json
+  artifacts:
+    when: always
+    paths:
+      - reports/
+    expire_in: 7 days
+
+

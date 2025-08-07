@@ -1,0 +1,41 @@
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.11'
+
+  - script: |
+      python -m pip install --upgrade pip
+      pip install flakewall pytest
+    displayName: Install dependencies
+
+  - script: |
+      mkdir -p reports
+      pytest --junitxml=reports/junit.xml
+    displayName: Run tests
+
+  - script: |
+      flakewall init
+      flakewall guard --junit "reports/**/*.xml"
+      flakewall score --junit "reports/**/*.xml" --min-total 2 --json > reports/flakewall_score.json
+    displayName: Flakewall guard and score
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: 'reports/junit.xml'
+      failTaskOnFailedTests: false
+    condition: succeededOrFailed()
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: 'reports'
+      ArtifactName: 'reports'
+    condition: succeededOrFailed()
+
+

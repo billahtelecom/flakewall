@@ -1,0 +1,36 @@
+pipeline {
+  agent any
+  stages {
+    stage('Setup Python') {
+      steps {
+        sh 'python3 -m pip install --upgrade pip'
+        sh 'pip3 install flakewall pytest'
+      }
+    }
+    stage('Test') {
+      steps {
+        sh 'mkdir -p reports'
+        sh 'pytest --junitxml=reports/junit.xml'
+      }
+      post {
+        always {
+          junit 'reports/junit.xml'
+        }
+      }
+    }
+    stage('Flakewall') {
+      steps {
+        sh 'flakewall init'
+        sh 'flakewall guard --junit "reports/**/*.xml"'
+        sh 'flakewall score --junit "reports/**/*.xml" --min-total 2 --json > reports/flakewall_score.json'
+      }
+    }
+  }
+  post {
+    always {
+      archiveArtifacts artifacts: 'reports/**', fingerprint: false
+    }
+  }
+}
+
+

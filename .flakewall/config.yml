@@ -1,0 +1,2 @@
+report_glob: '**/junit*.xml'
+retries: 0

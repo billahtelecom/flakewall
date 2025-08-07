@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.1.1
+- Add release workflow and polish docs/badges
+
 ## v0.1.0
 - Initial release
 - Commands: `init`, `report`, `guard`, `score`, `auto-quarantine`, `retry` (pytest/jest)

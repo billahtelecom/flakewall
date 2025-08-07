@@ -1,6 +1,8 @@
 # flakewall
 
 [![CI](https://github.com/Cicatriiz/flakewall/actions/workflows/ci.yml/badge.svg)](https://github.com/Cicatriiz/flakewall/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/flakewall.svg)](https://pypi.org/project/flakewall/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
 

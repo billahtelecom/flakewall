@@ -12,6 +12,9 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install --upgrade pip
       - run: pip install -e .[dev]
+      - name: Black check
+        run: |
+          python -m black --check .
       - name: Lint import
         run: python -c "import flakewall; print(flakewall.__version__)"
       - name: CLI smoke

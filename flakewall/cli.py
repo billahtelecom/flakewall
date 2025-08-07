@@ -14,10 +14,14 @@ from .quarantine import load_quarantined, add_to_quarantine
 from .runner import retry_tests
 from . import __version__
 
-app = typer.Typer(add_completion=False, help="Guard CI from flaky tests via JUnit XML and quarantine")
+app = typer.Typer(
+    add_completion=False,
+    help="Guard CI from flaky tests via JUnit XML and quarantine",
+    no_args_is_help=True,
+)
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(
     version: bool = typer.Option(False, "--version", help="Show version and exit"),
 ):

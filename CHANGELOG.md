@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.1.2
+- CLI: make --version work without subcommand; improve no-args help
+
 ## v0.1.1
 - Add release workflow and polish docs/badges
 
